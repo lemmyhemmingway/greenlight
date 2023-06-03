@@ -17,7 +17,7 @@ type Movie struct {
 }
 
 func ValidateMovie(v *validator.Validator, movie *Movie) {
-    
+
 	v.Check(movie.Title != "", "title", "must be provided")
 	v.Check(len(movie.Title) <= 500, "title", "must not be more than 500 bytes long")
 	v.Check(movie.Year >= 0, "year", "year must be provided")
