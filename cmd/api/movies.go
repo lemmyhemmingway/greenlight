@@ -1,9 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	_ "github.com/julienschmidt/httprouter"
 	"github.com/lemmyhemmingway/greenlight/internal/data"
@@ -12,10 +12,10 @@ import (
 
 func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Title   string       `json:"title"`
-		Year    int32        `json:"year"`
-		Runtime data.Runtime `json:"runtime"`
-		Genres  []string     `json:"genres"`
+		Title   string   `json:"title"`
+		Year    int32    `json:"year"`
+		Runtime int32    `json:"runtime"`
+		Genres  []string `json:"genres"`
 	}
 
 	err := app.readJSON(w, r, &input)
@@ -35,8 +35,18 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 		app.failedValidationRespons(w, r, v.Errors)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, "%+v\n", input)
+	err = app.models.Movies.Insert(movie)
+	if err != nil {
+		app.serverErrorResponse(w, r, errors.New("GUUUUUUUUUUUUUUUUUUUUUUNDI"))
+		return
+	}
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/movies/%d", movie.ID))
+
+	err = app.writeJSON(w, http.StatusCreated, envelope{"movie": movie}, headers)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 }
 
 func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request) {
@@ -47,13 +57,14 @@ func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	movie := data.Movie{
-		ID:        id,
-		CreatedAt: time.Now(),
-		Title:     "Casablanca",
-		Runtime:   102,
-		Genres:    []string{"drama", "romance", "war"},
-		Version:   1,
+	movie, err := app.models.Movies.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundErrorResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"movie": movie}, nil)

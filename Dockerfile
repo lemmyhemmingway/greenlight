@@ -4,4 +4,4 @@ COPY . /app
 
 RUN go mod tidy
 
-CMD ["go run ./cmd/api"]
+CMD ["make", "build"]
